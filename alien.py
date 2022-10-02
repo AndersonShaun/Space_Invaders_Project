@@ -14,9 +14,10 @@ class Alien(Sprite):
     alien_timers = {0: Timer(image_list=alien_images_0, delay=1000),
                     1: Timer(image_list=alien_images_1, delay=1000),
                     2: Timer(image_list=alien_images_2, delay=1000),
-                    3: Timer(image_list=alien_images_3)}
+                    3: Timer(image_list=alien_images_3, delay=1000)}
 
     alien_explosion_images = [pg.image.load(f'images/explode{n}.png') for n in range(7)]
+    ufo_explode_images = [pg.image.load(f'images/ufo_explode_{n}.png') for n in range(4)]
 
     def __init__(self, game, type):
         super().__init__()
@@ -33,7 +34,8 @@ class Alien(Sprite):
         self.dying = self.dead = False
                       
         self.timer_normal = Alien.alien_timers[type]              
-        self.timer_explosion = Timer(image_list=Alien.alien_explosion_images, is_loop=False)  
+        self.timer_explosion = Timer(image_list=Alien.alien_explosion_images, is_loop=False)
+        self.ufo_timer_explosion = Timer(image_list=Alien.ufo_explode_images, is_loop=False)
         self.timer = self.timer_normal                                    
 
     def check_edges(self):
@@ -46,20 +48,23 @@ class Alien(Sprite):
         screen_rect = self.screen.get_rect()
         return self.rect.bottom >= screen_rect.bottom or self.rect.colliderect(ship.rect)
 
-    def hit(self):
+    def hit(self, type):
         if not self.dying:
-            self.dying = True 
+            self.dying = True
+            if type == 3:
+                self.timer = self.ufo_timer_explosion
+                return
             self.timer = self.timer_explosion
 
     def update(self):
         if self.type == 3:
+            if self.timer == self.ufo_timer_explosion and self.timer.is_expired():
+                self.kill()
             settings = self.settings
             self.x += settings.alien_speed_factor * 2
             # print("This is unique for ufo")
             self.rect.x = self.x
             self.draw()
-            if self.timer == self.timer_explosion and self.timer.is_expired():
-                self.kill()
             return
 
         if self.timer == self.timer_explosion and self.timer.is_expired():
@@ -74,7 +79,6 @@ class Alien(Sprite):
         rect = image.get_rect()
         rect.left, rect.top = self.rect.left, self.rect.top
         self.screen.blit(image, rect)
-        # self.screen.blit(self.image, self.rect) 
 
 
 class Aliens:
@@ -86,7 +90,6 @@ class Aliens:
         self.ufo = GroupSingle()
 
         # self.ship_lasers = game.ship.lasers.lasers    # a laser Group
-        # self.aliens_lasers = Lasers(settings=game.settings)
 
         self.ship_lasers = game.ship_lasers.lasers    # a laser Group
         self.aliens_lasers = game.alien_lasers
@@ -98,7 +101,7 @@ class Aliens:
         self.sound = game.sound
         self.shoot_requests = 0
         self.ufo_spawn_requests = 0
-        # self.ufo_sound
+
         self.active_ufo = False
         self.ship = game.ship
         self.speed_check_1 = True
@@ -179,6 +182,7 @@ class Aliens:
         if len(self.aliens.sprites()) == 0:
             print('Aliens all gone!')
             self.speed_check_1 = True
+            self.speed_check_2 = True
             self.game.reset()
 
     def change_fleet_direction(self):
@@ -212,14 +216,14 @@ class Aliens:
         collisions = pg.sprite.groupcollide(self.aliens, self.ship_lasers, False, True)
         if collisions:
             for alien in collisions:
-                alien.hit()
+                alien.hit(alien.type)
                 self.sb.increment_score(alien.type)
 
         collisions = pg.sprite.groupcollide(self.ufo, self.ship_lasers, False, True)
         if collisions:
             for ufo in collisions:
-                ufo.hit()
-                self.active_ufo = False
+                ufo.hit(3)
+                self.active_ufo = True
                 self.sound.ufo_hover_stop()
             self.sb.increment_score(3)
 
